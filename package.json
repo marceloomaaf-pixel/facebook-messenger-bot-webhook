@@ -1,30 +1,13 @@
 {
   "name": "facebook-messenger-bot-webhook",
-  "version": "0.1.0",
-  "description": "A sample Facebook Messenger Bot Webhook Listener",
+  "version": "1.0.0",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "body-parser": "1.15.0",
-    "ejs": "2.3.3",
-    "express": "4.13.3",
-    "request": "2.71.0"
-  },
-  "engines": {
-    "node": "0.12.7"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/culturekings/facebook-messenger-bot-webhook"
-  },
-  "keywords": [
-    "node",
-    "heroku",
-    "express",
-    "facebook",
-    "messenger"
-  ],
-  "license": "MIT"
+    "express": "^4.18.2",
+    "body-parser": "^1.20.2",
+    "axios": "^1.6.0"
+  }
 }
