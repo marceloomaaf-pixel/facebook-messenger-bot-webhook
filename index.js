@@ -6,7 +6,7 @@ app.use(bodyParser.json());
 const PAGE_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const GROQ_KEY = process.env.GROQ_API_KEY;
-app.get('/webhook',(req,res)=>{if(req.query['hub.verify_token']===VERIFY_TOKEN)res.send(req.query['hub.challenge']);else res.send('Error');});
+app.get('/webhook',(req,res)=>{if(req.query['hub.verify_token']===VERIFY_TOKEN)res.send(req.query['hub.challenge']);else res.send('');});
 app.post('/webhook',async(req,res)=>{
  console.log('MESSAGE RECEIVED');
  const body=req.body;
