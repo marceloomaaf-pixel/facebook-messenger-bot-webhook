@@ -1,19 +1,20 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const request = require('request');
+const Groq = require('groq-sdk');
+
 const app = express();
 app.use(bodyParser.json());
 
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const PAGE_TOKEN = process.env.PAGE_ACCESS_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-const GROQ_KEY = process.env.GROQ_API_KEY;
-
-app.get('/', (req, res) => res.send('Bot Live with AI'));
 
 app.get('/webhook', (req, res) => {
-  if (req.query['hub.verify_token'] === VERIFY_TOKEN)
+  if (req.query['hub.verify_token'] === VERIFY_TOKEN) {
     res.send(req.query['hub.challenge']);
-  else res.send('Error');
+  } else {
+    res.sendStatus(403);
+  }
 });
 
 app.post('/webhook', async (req, res) => {
@@ -22,39 +23,37 @@ app.post('/webhook', async (req, res) => {
     for (const entry of body.entry) {
       for (const event of entry.messaging) {
         if (event.message && event.message.text) {
-          const sid = event.sender.id;
-          const txt = event.message.text;
-          console.log('MSG:', txt);
+          const sender = event.sender.id;
+          const text = event.message.text;
+          
           try {
-            const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            const chatCompletion = await groq.chat.completions.create({
+              messages: [{ role: 'user', content: text }],
+              model: 'llama-3.3-70b-versatile',
+            });
+            const reply = chatCompletion.choices[0]?.message?.content || "ما فهمتش، عاود!";
+            
+            await fetch(`https://graph.facebook.com/v20.0/me/messages?access_token=${PAGE_TOKEN}`, {
               method: 'POST',
-              headers: {
-                'Authorization': 'Bearer ' + GROQ_KEY,
-                'Content-Type': 'application/json'
-              },
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile',
-                messages: [
-                  { role: 'system', content: 'انت مساعد ذكي جزائري، جاوب بالدارجة الجزائرية بطريقة مضحكة وذكية' },
-                  { role: 'user', content: txt }
-                ],
-                max_tokens: 400
+                recipient: { id: sender },
+                message: { text: reply }
               })
             });
-            const d = await r.json();
-            let ans = d.choices?.[0]?.message?.content || 'ما فهمتش، عاود';
-            request({
-              url: 'https://graph.facebook.com/v18.0/me/messages',
-              qs: { access_token: PAGE_TOKEN },
-              method: 'POST',
-              json: { recipient: { id: sid }, message: { text: ans } }
-            });
-          } catch (e) { console.log(e); }
+          } catch (e) {
+            console.error(e);
+          }
         }
       }
     }
-    res.status(200).send('EVENT_RECEIVED');
-  } else res.sendStatus(404);
+    res.sendStatus(200);
+  } else {
+    res.sendStatus(404);
+  }
 });
 
-app.listen(process.env.PORT || 10000, () => console.log('Live'));
+app.get('/', (req, res) => res.send('Bot is running!'));
+
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => console.log(`Server running on ${PORT}`));
