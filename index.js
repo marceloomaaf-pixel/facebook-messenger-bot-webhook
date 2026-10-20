@@ -1,62 +1,43 @@
-var express = require('express');
-var app = express();
-var bodyParser = require('body-parser');
-var request = require('request');
-
+const express = require('express');
+const bodyParser = require('body-parser');
+const axios = require('axios');
+const app = express();
 app.use(bodyParser.json());
-
-app.set('port', (process.env.PORT || 5000));
-app.set('verify_token', (process.env.VERIFY_TOKEN || 'TEST'));
-app.set('page_access_token', (process.env.PAGE_ACCESS_TOKEN || 'NULL'));
-
-app.get('/', function (req, res) {
-        res.send('It Works! Follow FB Instructions to activate.');
+const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'moha123';
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+app.get('/', (req,res) => res.send('Bot AI is running'));
+app.get('/webhook', (req,res) => {
+  if(req.query['hub.verify_token'] === VERIFY_TOKEN){
+    res.send(req.query['hub.challenge']);
+  } else res.sendStatus(403);
 });
-
-app.get('/webhook', function (req, res) {
-    if (req.query['hub.verify_token'] === app.get('verify_token')) {
-        res.send(req.query['hub.challenge']);
-    } else {
-        res.send('Error, wrong validation token');
-    }
-});
-
-app.post('/webhook/', function (req, res) {
-    console.log (req.body);
-    messaging_events = req.body.entry[0].messaging;
-    for (i = 0; i < messaging_events.length; i++) {
-        event = req.body.entry[0].messaging[i];
-        sender = event.sender.id;
-        if (event.message && event.message.text) {
-            text = event.message.text;
-            // Your Logic Replaces the following Line
-            sendTextMessage(sender, "Text received, echo: "+ text.substring(0, 200));
-        }
+app.post('/webhook', async (req,res) => {
+  const body = req.body;
+  if(body.object === 'page'){
+    for(const entry of body.entry){
+      const messaging = entry.messaging[0];
+      if(messaging.message && messaging.message.text){
+        const senderId = messaging.sender.id;
+        const userText = messaging.message.text;
+        let aiReply = "مرحبا! كيفاش نقدر نعاونك؟";
+        try {
+          const groqRes = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+            model: "llama-3.1-8b-instant",
+            messages: [
+              {role: "system", content: "You are Moha, helpful Algerian assistant. Reply in Darija Algerian, friendly and short."},
+              {role: "user", content: userText}
+            ]
+          }, { headers: { 'Authorization': 'Bearer '+GROQ_API_KEY } });
+          aiReply = groqRes.data.choices[0].message.content;
+        } catch(e){ console.log(e.message); }
+        await axios.post('https://graph.facebook.com/v18.0/me/messages?access_token='+PAGE_ACCESS_TOKEN, {
+          recipient: {id: senderId},
+          message: {text: aiReply}
+        });
+      }
     }
     res.sendStatus(200);
+  } else res.sendStatus(404);
 });
-
-function sendTextMessage(sender, text) {
-    messageData = {
-        text:text
-    }
-    request({
-        url: 'https://graph.facebook.com/v2.6/me/messages',
-        qs: {access_token:app.get('page_access_token')},
-        method: 'POST',
-        json: {
-            recipient: {id:sender},
-            message: messageData,
-        }
-    }, function(error, response, body) {
-        if (error) {
-            console.log('Error sending message: ', error);
-        } else if (response.body.error) {
-            console.log('Error: ', response.body.error);
-        }
-    });
-}
-
-app.listen(app.get('port'), function() {
-    console.log('Node app is running on port', app.get('port'));
-});
+app.listen(process.env.PORT || 10000, () => console.log('running'));
